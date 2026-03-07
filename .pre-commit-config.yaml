@@ -27,6 +27,7 @@ repos:
       - id: check-xml
       - id: check-yaml
         args: ["--allow-multiple-documents"]
+        exclude: docker-compose\.no-gpu\.yaml$
       - id: debug-statements
       - id: end-of-file-fixer
       - id: mixed-line-ending

@@ -1,16 +1,9 @@
 # PlatformIO
 .pio/
+bbot_esp/.gitignore
 
-# VS Code - root level (host-specific, not useful to collaborators)
-/.vscode/
-
-# VS Code - generated files at any depth
-**/.vscode/c_cpp_properties.json
-**/.vscode/launch.json
-**/.vscode/ipch/
-**/.vscode/*.db
-**/.vscode/*.db-shm
-**/.vscode/*.db-wal
+# VS Code
+.vscode/
 
 # ROS 2 build artifacts (normally inside Docker, but just in case)
 build/
@@ -23,3 +16,6 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# Claude Code
+CLAUDE.md
