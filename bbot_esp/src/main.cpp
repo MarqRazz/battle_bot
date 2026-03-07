@@ -7,6 +7,7 @@
 #include <math.h>  // For fmod() and M_PI
 #include <stdint.h>
 #include <stdio.h>
+#include "oled_display.h"
 #include "picoros.h"
 #include "picoserdes.h"
 #include "sc_servo_manager.h"
@@ -81,6 +82,7 @@ void portalLedBlink()
 void configModeCallback(WiFiManager * wm)
 {
   Serial.printf("Entered config portal: %s\n", WiFi.softAPIP().toString().c_str());
+  displayStatus("Config Portal", "AP: BattleBot-Setup", WiFi.softAPIP().toString().c_str());
   portalLedTicker.attach_ms(500, portalLedBlink);
 }
 
@@ -253,6 +255,9 @@ void setup(void)
     blockingBlinkRGB(200, 165, 0, 1000);
   } while (!Serial);
 
+  initDisplay();
+  displayStatus("BattleBot", "Starting...");
+
   // Check if BOOT button is held to force config portal
   pinMode(BOOT_BUTTON, INPUT_PULLUP);
   bool forcePortal = (digitalRead(BOOT_BUTTON) == LOW);
@@ -277,6 +282,7 @@ void setup(void)
 
   if (forcePortal)
   {
+    displayStatus("BOOT held", "Resetting config...");
     Serial.printf("BOOT button held — resetting WiFi and router settings\n");
     wm.resetSettings();
     prefs.begin("bbot", false);
@@ -287,11 +293,13 @@ void setup(void)
   }
 
   Serial.printf("Starting WiFiManager (AP: %s)\n", AP_NAME);
+  displayStatus("WiFi Setup", "AP: BattleBot-Setup", "Connect to configure");
   if (!wm.autoConnect(AP_NAME))
   {
     // Portal timed out without connection
     portalLedTicker.detach();
     Serial.printf("WiFi portal timed out — restarting\n");
+    displayStatus("WiFi timeout", "Restarting...");
     for (int i = 0; i < 6; i++)
     {
       blockingBlinkRGB(255, 0, 0, 500);
@@ -302,6 +310,7 @@ void setup(void)
   // Connected successfully
   portalLedTicker.detach();
   Serial.printf("Connected to WiFi with address: %s\n", WiFi.localIP().toString().c_str());
+  displayStatus("WiFi connected", WiFi.localIP().toString().c_str(), routerAddress);
   neopixelWrite(RGB_LED, 0, 0, 255);
   delay(2000);
   neopixelWrite(RGB_LED, 0, 0, 0);
@@ -313,6 +322,7 @@ void setup(void)
   };
 
   Serial.printf("Starting pico-ros interface:[%s] on router address:[%s]\n", ifx.mode, ifx.locator);
+  displayStatus("Zenoh waiting", routerAddress, "Connecting...");
   while (picoros_interface_init(&ifx) == PICOROS_NOT_READY)
   {
     printf("Waiting RMW init...\n");
@@ -333,6 +343,7 @@ void setup(void)
   motors.setWorkMode(1);
   servoMutex = xSemaphoreCreateMutex();
   Serial.printf("Servos have been initialized\n");
+  displayStatus("Running", WiFi.localIP().toString().c_str(), routerAddress, "100Hz pub loop");
   xTaskCreatePinnedToCore(
     servoTask,    // Task function
     "ServoTask",  // Name
