@@ -1,0 +1,15 @@
+# Override file to disable NVIDIA GPU support for systems without a GPU.
+#
+# Usage:
+#   docker compose -f docker-compose.yaml -f docker-compose.no-gpu.yaml build
+#   docker compose -f docker-compose.yaml -f docker-compose.no-gpu.yaml up -d
+#
+# Or set COMPOSE_FILE in your shell to avoid repeating the flags:
+#   export COMPOSE_FILE=docker-compose.yaml:docker-compose.no-gpu.yaml
+
+services:
+  cpu:
+    deploy: !reset {}
+    environment:
+      - ROS_DOMAIN_ID=0
+      - DISPLAY=${DISPLAY}
