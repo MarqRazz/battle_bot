@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<robot name="bbot" xmlns:xacro="http://ros.org/wiki/xacro">
+
+    <!-- Arguments -->
+    <xacro:arg name="prefix" default="bbot_" />
+    <xacro:arg name="mock_hardware" default="true" />
+
+    <!-- Import macros for hardware components -->
+    <xacro:include filename="$(find bbot_description)/urdf/bbot_macro.xacro"/>
+
+    <xacro:load_bbot
+        prefix="$(arg prefix)"
+        mock_hardware="$(arg mock_hardware)"/>
+
+</robot>
