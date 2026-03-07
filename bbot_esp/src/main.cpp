@@ -1,21 +1,30 @@
 #include <Arduino.h>
+#include <Preferences.h>
+#include <Ticker.h>
 #include <WiFi.h>
+#include <WiFiManager.h>
 
 #include <math.h>  // For fmod() and M_PI
 #include <stdint.h>
 #include <stdio.h>
+#include "oled_display.h"
 #include "picoros.h"
 #include "picoserdes.h"
 #include "sc_servo_manager.h"
 
-// WiFi-specific parameters
-#define SSID "TODO"
-#define PASS "super_secret"
-
 // Zenoh-specific parameters
 #define MODE "client"
-// change this to match your ROS 2 host router's ip address
-#define ROUTER_ADDRESS "tcp/192.168.9.138:7447"
+
+// WiFiManager configuration
+static const char * AP_NAME = "BattleBot-Setup";
+static const unsigned int PORTAL_TIMEOUT_SEC = 120;
+static const char * DEFAULT_ROUTER = "tcp/192.168.1.100:7447";
+static const int BOOT_BUTTON = 0;
+
+// Global buffer for Zenoh locator string (must outlive picoros_interface_t)
+static char routerAddress[65];
+Ticker portalLedTicker;
+Preferences prefs;
 
 // the GPIO used to control RGB LEDs.
 // GPIO 23, as default.
@@ -60,6 +69,37 @@ void blockingBlinkRGB(int r, int g, int b, int sleep_ms)
   delay(sleep_ms / 2);
   neopixelWrite(RGB_LED, 0, 0, 0);
   delay(sleep_ms / 2);
+}
+
+/* ---------- WiFiManager Helpers ----------- */
+void portalLedBlink()
+{
+  static bool state = false;
+  state = !state;
+  neopixelWrite(RGB_LED, 0, state ? 200 : 0, state ? 200 : 0);
+}
+
+void configModeCallback(WiFiManager * wm)
+{
+  Serial.printf("Entered config portal: %s\n", WiFi.softAPIP().toString().c_str());
+  displayStatus("Config Portal", "AP: BattleBot-Setup", WiFi.softAPIP().toString().c_str());
+  portalLedTicker.attach_ms(500, portalLedBlink);
+}
+
+void loadRouterAddress()
+{
+  prefs.begin("bbot", true);  // read-only
+  String stored = prefs.getString("router", DEFAULT_ROUTER);
+  prefs.end();
+  strncpy(routerAddress, stored.c_str(), sizeof(routerAddress) - 1);
+  routerAddress[sizeof(routerAddress) - 1] = '\0';
+}
+
+void saveRouterAddress()
+{
+  prefs.begin("bbot", false);  // read-write
+  prefs.putString("router", routerAddress);
+  prefs.end();
 }
 
 // Subscriber callback
@@ -215,16 +255,62 @@ void setup(void)
     blockingBlinkRGB(200, 165, 0, 1000);
   } while (!Serial);
 
-  Serial.printf("Connecting to WiFi:[%s]!\n", SSID);
-  // Set WiFi in STA mode and trigger attachment
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(SSID, PASS);
-  while (WiFi.status() != WL_CONNECTED)
-  {  // blink the LED Blue to signal we are connecting to WiFi
-    blockingBlinkRGB(0, 0, 255, 500);
+  initDisplay();
+  displayStatus("BattleBot", "Starting...");
+
+  // Check if BOOT button is held to force config portal
+  pinMode(BOOT_BUTTON, INPUT_PULLUP);
+  bool forcePortal = (digitalRead(BOOT_BUTTON) == LOW);
+
+  // Load router address from NVS
+  loadRouterAddress();
+
+  // Set up WiFiManager
+  WiFiManager wm;
+  WiFiManagerParameter routerParam("router", "Zenoh Router (e.g. tcp/IP:7447)", routerAddress, 64);
+  wm.addParameter(&routerParam);
+  wm.setConfigPortalTimeout(PORTAL_TIMEOUT_SEC);
+  wm.setAPCallback(configModeCallback);
+  wm.setSaveParamsCallback(
+    [&routerParam]()
+    {
+      strncpy(routerAddress, routerParam.getValue(), sizeof(routerAddress) - 1);
+      routerAddress[sizeof(routerAddress) - 1] = '\0';
+      saveRouterAddress();
+      Serial.printf("Saved router address: %s\n", routerAddress);
+    });
+
+  if (forcePortal)
+  {
+    displayStatus("BOOT held", "Resetting config...");
+    Serial.printf("BOOT button held — resetting WiFi and router settings\n");
+    wm.resetSettings();
+    prefs.begin("bbot", false);
+    prefs.clear();
+    prefs.end();
+    strncpy(routerAddress, DEFAULT_ROUTER, sizeof(routerAddress) - 1);
+    routerAddress[sizeof(routerAddress) - 1] = '\0';
   }
-  Serial.printf("Connected to WiFi:[%s] with address:[%s]\n", SSID, WiFi.localIP().toString());
-  // Hold Blue solid indicating success
+
+  Serial.printf("Starting WiFiManager (AP: %s)\n", AP_NAME);
+  displayStatus("WiFi Setup", "AP: BattleBot-Setup", "Connect to configure");
+  if (!wm.autoConnect(AP_NAME))
+  {
+    // Portal timed out without connection
+    portalLedTicker.detach();
+    Serial.printf("WiFi portal timed out — restarting\n");
+    displayStatus("WiFi timeout", "Restarting...");
+    for (int i = 0; i < 6; i++)
+    {
+      blockingBlinkRGB(255, 0, 0, 500);
+    }
+    ESP.restart();
+  }
+
+  // Connected successfully
+  portalLedTicker.detach();
+  Serial.printf("Connected to WiFi with address: %s\n", WiFi.localIP().toString().c_str());
+  displayStatus("WiFi connected", WiFi.localIP().toString().c_str(), routerAddress);
   neopixelWrite(RGB_LED, 0, 0, 255);
   delay(2000);
   neopixelWrite(RGB_LED, 0, 0, 0);
@@ -232,10 +318,11 @@ void setup(void)
   // Initialize Pico ROS interface
   picoros_interface_t ifx = {
     .mode = MODE,
-    .locator = ROUTER_ADDRESS,
+    .locator = routerAddress,
   };
 
   Serial.printf("Starting pico-ros interface:[%s] on router address:[%s]\n", ifx.mode, ifx.locator);
+  displayStatus("Zenoh waiting", routerAddress, "Connecting...");
   while (picoros_interface_init(&ifx) == PICOROS_NOT_READY)
   {
     printf("Waiting RMW init...\n");
@@ -256,6 +343,7 @@ void setup(void)
   motors.setWorkMode(1);
   servoMutex = xSemaphoreCreateMutex();
   Serial.printf("Servos have been initialized\n");
+  displayStatus("Running", WiFi.localIP().toString().c_str(), routerAddress, "100Hz pub loop");
   xTaskCreatePinnedToCore(
     servoTask,    // Task function
     "ServoTask",  // Name
