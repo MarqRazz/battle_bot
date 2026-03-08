@@ -117,9 +117,9 @@
 
     <!-- ros2_control -->
     <xacro:include filename="$(find bbot_description)/urdf/bbot.ros2_control.xacro"/>
-    <xacro:property name="ros2_control_name" value="bbot_base_control"/>
     <xacro:bbot_ros2_control
-      name="${ros2_control_name}"
+      name="${prefix}base_control"
+      prefix="${prefix}"
       mock_hardware="${mock_hardware}"
       joint_command_topic="${joint_command_topic}"
       joint_states_topic="${joint_states_topic}"/>
