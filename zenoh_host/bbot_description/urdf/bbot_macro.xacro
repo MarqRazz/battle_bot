@@ -10,47 +10,9 @@
 
   <!-- Wheel dimensions -->
   <xacro:property name="wheel_radius" value="0.056"/>
-  <xacro:property name="wheel_width" value="0.025"/>
+  <xacro:property name="wheel_width" value="0.057"/>
   <xacro:property name="wheel_mass" value="0.1"/>
-  <xacro:property name="wheel_y_offset" value="0.1075"/>
-
-  <!-- Caster dimensions -->
-  <xacro:property name="caster_radius" value="0.012"/>
-  <xacro:property name="caster_mass" value="0.02"/>
-  <xacro:property name="caster_x_offset" value="${-chassis_length / 2 + caster_radius}"/>
-
-  <!-- Wheel macro -->
-  <xacro:macro name="bbot_wheel" params="prefix side y_offset">
-    <link name="${prefix}wheel_${side}_link">
-      <visual>
-        <geometry>
-          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
-        </geometry>
-        <material name="dark_grey">
-          <color rgba="0.3 0.3 0.3 1.0"/>
-        </material>
-      </visual>
-      <collision>
-        <geometry>
-          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
-        </geometry>
-      </collision>
-      <inertial>
-        <mass value="${wheel_mass}"/>
-        <inertia ixx="${(1.0/12.0) * wheel_mass * (3 * wheel_radius * wheel_radius + wheel_width * wheel_width)}"
-                 ixy="0" ixz="0"
-                 iyy="${(1.0/12.0) * wheel_mass * (3 * wheel_radius * wheel_radius + wheel_width * wheel_width)}"
-                 iyz="0"
-                 izz="${(1.0/2.0) * wheel_mass * wheel_radius * wheel_radius}"/>
-      </inertial>
-    </link>
-    <joint name="${prefix}wheel_${side}_joint" type="continuous">
-      <parent link="${prefix}base_link"/>
-      <child link="${prefix}wheel_${side}_link"/>
-      <origin xyz="0 ${y_offset} 0" rpy="${-pi/2} 0 0"/>
-      <axis xyz="0 0 1"/>
-    </joint>
-  </xacro:macro>
+  <xacro:property name="servo_y_offset" value="${0.1276 / 2}"/> <!-- Distance between the drive servos -->
 
   <!-- Main robot macro -->
   <xacro:macro name="load_bbot" params="
@@ -70,23 +32,19 @@
 
     <!-- Base link (chassis) -->
     <link name="${prefix}base_link">
-      <visual>
-        <origin xyz="0 0 ${chassis_z - wheel_radius + chassis_height / 2}" rpy="0 0 0"/>
+     <visual>
         <geometry>
-          <box size="${chassis_length} ${chassis_width} ${chassis_height}"/>
+          <mesh filename="file://$(find bbot_description)/meshes/base_link.obj" />
         </geometry>
-        <material name="blue">
-          <color rgba="0.2 0.4 0.8 1.0"/>
-        </material>
       </visual>
       <collision>
-        <origin xyz="0 0 ${chassis_z - wheel_radius + chassis_height / 2}" rpy="0 0 0"/>
+        <origin xyz="-0.025 0 ${chassis_height/2 - 0.0168}" rpy="0 0 0"/>
         <geometry>
           <box size="${chassis_length} ${chassis_width} ${chassis_height}"/>
         </geometry>
       </collision>
       <inertial>
-        <origin xyz="0 0 ${chassis_z - wheel_radius + chassis_height / 2}" rpy="0 0 0"/>
+        <origin xyz="-0.025 0 ${chassis_height/2 - 0.0168}" rpy="0 0 0"/>
         <mass value="${chassis_mass}"/>
         <inertia ixx="${(1.0/12.0) * chassis_mass * (chassis_width * chassis_width + chassis_height * chassis_height)}"
                  ixy="0" ixz="0"
@@ -97,37 +55,64 @@
     </link>
 
     <!-- Wheels -->
-    <xacro:bbot_wheel prefix="${prefix}" side="left" y_offset="${wheel_y_offset}"/>
-    <xacro:bbot_wheel prefix="${prefix}" side="right" y_offset="${-wheel_y_offset}"/>
-
-    <!-- Caster -->
-    <link name="${prefix}caster_link">
+    <link name="${prefix}wheel_left_link">
       <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
-          <sphere radius="${caster_radius}"/>
+          <mesh filename="file://$(find bbot_description)/meshes/wheel.obj" />
         </geometry>
-        <material name="grey">
-          <color rgba="0.5 0.5 0.5 1.0"/>
-        </material>
       </visual>
       <collision>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0" />
         <geometry>
-          <sphere radius="${caster_radius}"/>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
         </geometry>
       </collision>
       <inertial>
-        <mass value="${caster_mass}"/>
-        <inertia ixx="${(2.0/5.0) * caster_mass * caster_radius * caster_radius}"
+        <origin xyz="0 0.045 0" rpy="0 0 0" />
+        <mass value="${wheel_mass}"/>
+        <inertia ixx="${(1.0/12.0) * wheel_mass * (3 * wheel_radius * wheel_radius + wheel_width * wheel_width)}"
                  ixy="0" ixz="0"
-                 iyy="${(2.0/5.0) * caster_mass * caster_radius * caster_radius}"
+                 iyy="${(1.0/2.0) * wheel_mass * wheel_radius * wheel_radius}"
                  iyz="0"
-                 izz="${(2.0/5.0) * caster_mass * caster_radius * caster_radius}"/>
+                 izz="${(1.0/12.0) * wheel_mass * (3 * wheel_radius * wheel_radius + wheel_width * wheel_width)}"/>
       </inertial>
     </link>
-    <joint name="${prefix}caster_joint" type="fixed">
+    <joint name="${prefix}wheel_left_joint" type="continuous">
       <parent link="${prefix}base_link"/>
-      <child link="${prefix}caster_link"/>
-      <origin xyz="${caster_x_offset} 0 ${caster_radius - wheel_radius}" rpy="0 0 0"/>
+      <child link="${prefix}wheel_left_link"/>
+      <origin xyz="0 ${servo_y_offset} 0" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+
+    <link name="${prefix}wheel_right_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <mesh filename="file://$(find bbot_description)/meshes/wheel.obj" />
+        </geometry>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0" />
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <origin xyz="0 -0.045 0" rpy="0 0 0" />
+        <mass value="${wheel_mass}"/>
+        <inertia ixx="${(1.0/12.0) * wheel_mass * (3 * wheel_radius * wheel_radius + wheel_width * wheel_width)}"
+                 ixy="0" ixz="0"
+                 iyy="${(1.0/2.0) * wheel_mass * wheel_radius * wheel_radius}"
+                 iyz="0"
+                 izz="${(1.0/12.0) * wheel_mass * (3 * wheel_radius * wheel_radius + wheel_width * wheel_width)}"/>
+      </inertial>
+    </link>
+    <joint name="${prefix}wheel_right_joint" type="continuous">
+      <parent link="${prefix}base_link"/>
+      <child link="${prefix}wheel_right_link"/>
+      <origin xyz="0 ${-servo_y_offset} 0" rpy="0 0 ${pi}"/>
+      <axis xyz="0 -1 0"/>
     </joint>
 
     <!-- ros2_control -->

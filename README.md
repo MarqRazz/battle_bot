@@ -9,6 +9,17 @@ ESP32 (bbot_esp)   <--WiFi/Zenoh-->  Docker (zenoh_host)
   WiFiManager portal                   joint_state_broadcaster
 ```
 
+## Git LFS
+
+This repo uses **[git-lfs](https://git-lfs.github.com)** to store mesh files. Install and activate with:
+
+```bash
+sudo apt install git-lfs
+git lfs install
+```
+
+If you cloned without `git-lfs` installed, run `git lfs pull` to download the mesh assets.
+
 ## Prerequisites
 
 - [Docker Compose](https://docs.docker.com/compose/install/linux/#install-using-the-repository)
