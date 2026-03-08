@@ -3,6 +3,7 @@
 
   <xacro:macro name="bbot_ros2_control" params="
     name
+    prefix
     mock_hardware:=false
     joint_command_topic:=/joint_command_topic
     joint_states_topic:=/joint_states_topic">
@@ -23,7 +24,7 @@
           <param name="trigger_joint_command_threshold">-1</param> <!-- always publish commands on the topic -->
         </xacro:unless>
       </hardware>
-      <joint name="bbot_wheel_left_joint">
+      <joint name="${prefix}wheel_left_joint">
         <command_interface name="velocity">
           <param name="min">-3.15</param>
           <param name="max">3.15</param>
@@ -32,7 +33,7 @@
         <state_interface name="velocity"/>
         <state_interface name="effort"/>
       </joint>
-      <joint name="bbot_wheel_right_joint">
+      <joint name="${prefix}wheel_right_joint">
         <command_interface name="velocity">
           <param name="min">-3.15</param>
           <param name="max">3.15</param>

@@ -13,7 +13,7 @@ diff_drive_base_controller:
     left_wheel_names: ["bbot_wheel_left_joint"]
     right_wheel_names: ["bbot_wheel_right_joint"]
 
-    wheel_separation: 0.215 # Shortest distance between the left and right wheels
+    wheel_separation: 0.2 # Shortest distance between the left and right wheels
     wheel_radius: 0.056
 
     wheel_separation_multiplier: 1.0
